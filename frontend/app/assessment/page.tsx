@@ -1,10 +1,12 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAssessmentStore } from "@/store/assessment"
 import { Button } from "@/components/ui/button"
-import { Activity, ShieldCheck, ArrowRight, Loader } from "lucide-react"
+import { Activity, ShieldCheck, ArrowRight, Loader, HelpCircle } from "lucide-react"
+import { driver } from "driver.js"
+import "driver.js/dist/driver.css"
 
 export default function AssessmentPage() {
   const router = useRouter()
@@ -13,6 +15,109 @@ export default function AssessmentPage() {
   const [questions, setQuestions] = useState<any[]>([])
   const [isLoadingApi, setIsLoadingApi] = useState(true)
   const [currentGroupIdx, setCurrentGroupIdx] = useState(0)
+
+  const startTutorial = useCallback(() => {
+    const driverObj = driver({
+      showProgress: true,
+      animate: true,
+      overlayColor: 'rgba(15, 23, 42, 0.75)',
+      stagePadding: 12,
+      stageRadius: 16,
+      popoverClass: 'disc-tutorial-popover',
+      progressText: 'Langkah {{current}} dari {{total}}',
+      nextBtnText: 'Lanjut →',
+      prevBtnText: '← Kembali',
+      doneBtnText: 'Mulai Asesmen ✓',
+      steps: [
+        {
+          element: '#assessment-header',
+          popover: {
+            title: '👋 Selamat Datang di Asesmen DISC',
+            description: 'Ini adalah halaman pengisian asesmen perilaku. Mari kita pelajari cara mengisi dengan benar agar hasilnya akurat.',
+            side: 'bottom',
+            align: 'center'
+          }
+        },
+        {
+          element: '#progress-indicator',
+          popover: {
+            title: '📊 Indikator Progres',
+            description: 'Di sini Anda bisa melihat tahap ke berapa dari total 24 kelompok pernyataan. Bar hijau di bawah menunjukkan progres pengisian.',
+            side: 'bottom',
+            align: 'end'
+          }
+        },
+        {
+          element: '#question-title',
+          popover: {
+            title: '📝 Instruksi Pengisian',
+            description: 'Setiap tahap menampilkan 4 pernyataan perilaku. Tugas Anda adalah memilih satu yang PALING menggambarkan diri Anda, dan satu yang KURANG menggambarkan diri Anda.',
+            side: 'bottom',
+            align: 'center'
+          }
+        },
+        {
+          element: '#statement-row-0',
+          popover: {
+            title: '💬 Pernyataan Perilaku',
+            description: 'Ini adalah salah satu dari 4 pernyataan. Baca dengan seksama dan rasakan apakah pernyataan ini menggambarkan diri Anda atau tidak.',
+            side: 'bottom',
+            align: 'center'
+          }
+        },
+        {
+          element: '#most-btn-0',
+          popover: {
+            title: '✅ Tombol "Paling" (P)',
+            description: 'Klik tombol hijau ini jika pernyataan tersebut PALING menggambarkan diri Anda. Anda hanya boleh memilih satu "Paling" dari 4 pernyataan.',
+            side: 'left',
+            align: 'center'
+          }
+        },
+        {
+          element: '#least-btn-0',
+          popover: {
+            title: '❌ Tombol "Kurang" (K)',
+            description: 'Klik tombol merah ini jika pernyataan tersebut KURANG menggambarkan diri Anda. Anda hanya boleh memilih satu "Kurang" dari 4 pernyataan.',
+            side: 'left',
+            align: 'center'
+          }
+        },
+        {
+          element: '#column-headers',
+          popover: {
+            title: '⚠️ Aturan Penting',
+            description: 'Anda TIDAK boleh memilih "Paling" dan "Kurang" pada pernyataan yang sama. Pilih pernyataan berbeda untuk masing-masing kategori.',
+            side: 'bottom',
+            align: 'center'
+          }
+        },
+        {
+          element: '#next-button',
+          popover: {
+            title: '➡️ Tombol Lanjut',
+            description: 'Setelah memilih satu "Paling" dan satu "Kurang", tombol ini akan aktif. Klik untuk menyimpan jawaban dan lanjut ke tahap berikutnya.',
+            side: 'top',
+            align: 'end'
+          }
+        },
+        {
+          element: '#progress-bar',
+          popover: {
+            title: '🎯 Tips Pengisian',
+            description: 'Jawablah secara spontan berdasarkan insting pertama. Tidak ada jawaban benar atau salah — yang penting adalah kejujuran. Selamat mengerjakan!',
+            side: 'bottom',
+            align: 'center'
+          }
+        }
+      ],
+      onDestroyStarted: () => {
+        driverObj.destroy()
+        localStorage.setItem('disc-tutorial-done', 'true')
+      }
+    })
+    driverObj.drive()
+  }, [])
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !participant) {
@@ -48,6 +153,17 @@ export default function AssessmentPage() {
       return () => clearTimeout(timer)
     }
   }, [isFinished, router])
+
+  // Trigger tutorial on first visit
+  useEffect(() => {
+    if (!isLoadingApi && questions.length > 0 && !isFinished) {
+      const tutorialDone = localStorage.getItem('disc-tutorial-done')
+      if (!tutorialDone) {
+        const timer = setTimeout(() => startTutorial(), 800)
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [isLoadingApi, questions, isFinished, startTutorial])
   
   if (isLoadingApi) {
     return (
@@ -102,7 +218,7 @@ export default function AssessmentPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 overflow-hidden font-sans flex flex-col">
-      <header className="px-8 py-4 border-b border-slate-200 bg-white flex justify-between items-center z-10 shadow-sm sticky top-0">
+      <header id="assessment-header" className="px-8 py-4 border-b border-slate-200 bg-white flex justify-between items-center z-10 shadow-sm sticky top-0">
         <div className="flex items-center gap-4">
           <img src="/wk.png" alt="Logo" className="h-9 w-auto" />
           <div className="h-8 w-px bg-slate-200" />
@@ -110,13 +226,23 @@ export default function AssessmentPage() {
             Nama Peserta: <span className="text-slate-900 font-semibold">{participant?.name || 'Anonim'}</span>
           </div>
         </div>
-        <div className="text-xs font-semibold text-teal-700 px-4 py-1.5 bg-teal-50 rounded-full border border-teal-100 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-teal-500" />
-          TAHAP {currentGroupIdx + 1} / {questions.length}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={startTutorial}
+            className="text-slate-400 hover:text-teal-600 transition-colors p-2 rounded-lg hover:bg-teal-50"
+            title="Lihat tutorial pengisian"
+            id="tutorial-btn"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
+          <div id="progress-indicator" className="text-xs font-semibold text-teal-700 px-4 py-1.5 bg-teal-50 rounded-full border border-teal-100 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-teal-500" />
+            TAHAP {currentGroupIdx + 1} / {questions.length}
+          </div>
         </div>
       </header>
 
-      <div className="h-1.5 bg-slate-100 w-full relative">
+      <div id="progress-bar" className="h-1.5 bg-slate-100 w-full relative">
         <motion.div 
           className="absolute top-0 left-0 h-full bg-teal-500 rounded-r-full"
           initial={{ width: 0 }}
@@ -136,7 +262,7 @@ export default function AssessmentPage() {
           >
             <div className="bg-white border border-slate-200/80 rounded-3xl p-8 md:p-14 shadow-xl shadow-slate-200/50">
               
-              <div className="mb-12 text-center max-w-2xl mx-auto">
+              <div id="question-title" className="mb-12 text-center max-w-2xl mx-auto">
                 <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-900">Pernyataan Perilaku</h2>
                 <p className="text-slate-500 text-lg leading-relaxed">
                   Pilih <strong className="text-teal-600 bg-teal-50 px-2 py-0.5 rounded">PALING (P)</strong> yang menggambarkan diri Anda, dan <strong className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded">KURANG (K)</strong> yang tidak menggambarkan diri Anda.
@@ -144,18 +270,18 @@ export default function AssessmentPage() {
               </div>
 
               <div className="space-y-4 md:space-y-3">
-                <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 px-6 mb-2 hidden sm:grid">
+                <div id="column-headers" className="grid grid-cols-[1fr_auto_auto] gap-x-6 px-6 mb-2 hidden sm:grid">
                   <div />
                   <div className="text-center font-bold text-teal-600 text-sm w-16">Paling</div>
                   <div className="text-center font-bold text-rose-600 text-sm w-16">Kurang</div>
                 </div>
 
-                {currentGroup.statements.map((stmt: any) => {
+                {currentGroup.statements.map((stmt: any, idx: number) => {
                   const isMost = currentAns.most === stmt.id
                   const isLeast = currentAns.least === stmt.id
 
                   return (
-                    <div key={stmt.id} className="flex flex-col sm:grid sm:grid-cols-[1fr_auto_auto] gap-4 sm:gap-x-6 items-center group bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 transition-all hover:bg-slate-100/70 hover:border-slate-300">
+                    <div key={stmt.id} id={`statement-row-${idx}`} className="flex flex-col sm:grid sm:grid-cols-[1fr_auto_auto] gap-4 sm:gap-x-6 items-center group bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 transition-all hover:bg-slate-100/70 hover:border-slate-300">
                       <div className="w-full text-base sm:text-lg text-slate-700 font-medium sm:px-2 text-center sm:text-left">
                         {stmt.text}
                       </div>
@@ -164,6 +290,7 @@ export default function AssessmentPage() {
                         <div className="flex flex-col items-center gap-2">
                           <span className="sm:hidden text-xs font-bold text-teal-600 uppercase">Paling (P)</span>
                           <button 
+                            id={`most-btn-${idx}`}
                             onClick={() => handleSelect(stmt.id, 'most')}
                             disabled={isLeast}
                             className={`w-16 h-16 rounded-xl border-2 flex items-center justify-center transition-all ${isMost ? 'bg-teal-50 border-teal-500 text-teal-600 shadow-sm' : 'bg-white border-slate-200 hover:border-teal-300'} ${isLeast ? 'opacity-40 cursor-not-allowed bg-slate-100 border-slate-100' : 'cursor-pointer'}`}
@@ -178,6 +305,7 @@ export default function AssessmentPage() {
                         <div className="flex flex-col items-center gap-2">
                           <span className="sm:hidden text-xs font-bold text-rose-600 uppercase">Kurang (K)</span>
                           <button 
+                            id={`least-btn-${idx}`}
                             onClick={() => handleSelect(stmt.id, 'least')}
                             disabled={isMost}
                             className={`w-16 h-16 rounded-xl border-2 flex items-center justify-center transition-all ${isLeast ? 'bg-rose-50 border-rose-500 text-rose-600 shadow-sm' : 'bg-white border-slate-200 hover:border-rose-300'} ${isMost ? 'opacity-40 cursor-not-allowed bg-slate-100 border-slate-100' : 'cursor-pointer'}`}
@@ -196,6 +324,7 @@ export default function AssessmentPage() {
 
               <div className="mt-12 flex justify-end pt-6 border-t border-slate-100">
                 <Button 
+                  id="next-button"
                   onClick={goNext}
                   disabled={!canProceed}
                   className="h-14 px-8 bg-slate-900 border-slate-800 text-white hover:bg-teal-600 hover:border-teal-600 rounded-xl text-base font-semibold transition-all disabled:opacity-40 flex items-center gap-3 shadow-md"

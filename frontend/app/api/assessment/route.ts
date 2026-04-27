@@ -62,7 +62,20 @@ export async function POST(request: Request) {
       profileEntry = Object.entries(discProfiles).find(([_, p]) => p.pattern === pattern1)
     }
     
-    const profile = profileEntry ? profileEntry[1] : Object.values(discProfiles)[0]
+    if (!profileEntry) {
+      // Fallback: gunakan profil Mixed jika tidak ada pattern yang cocok
+      console.warn(`Profil DISC tidak ditemukan untuk pattern "${pattern2}" atau "${pattern1}". Menggunakan fallback.`)
+    }
+
+    const profile = profileEntry ? profileEntry[1] : {
+      pattern: pattern2,
+      title: 'Profil Campuran',
+      description: `Anda memiliki kombinasi unik dari faktor ${topOne} dan ${topTwo} yang tidak mengikuti pola klasik. Ini menunjukkan fleksibilitas dan keragaman karakter.`,
+      strengths: ['Adaptif terhadap berbagai situasi', 'Memiliki perspektif yang beragam', 'Fleksibel dalam pendekatan'],
+      weaknesses: ['Bisa sulit menentukan prioritas gaya kerja', 'Kadang tidak konsisten dalam pendekatan'],
+      fears: ['Dipaksa memilih satu gaya kerja saja', 'Lingkungan yang terlalu kaku'],
+      jobMatches: ['Konsultan', 'Manajer Proyek', 'Generalis HR', 'Business Development']
+    }
 
     // ==== SIMPAN KE SUPABASE ====
     // Ambil data peserta dari payload form (asumsi dikirim dari app/result/page.tsx)
