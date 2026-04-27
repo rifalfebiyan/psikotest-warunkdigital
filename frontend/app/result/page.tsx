@@ -3,7 +3,9 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, AreaChart, Area } from "recharts"
-import jsPDF from "jspdf"
+import { pdf } from "@react-pdf/renderer"
+import { DetailedReportPDF } from "@/components/pdf/DetailedReportPDF"
+import { SocialBadge } from "@/components/SocialBadge"
 import { useAssessmentStore } from "@/store/assessment"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,21 +23,30 @@ import {
   Phone,
   ArrowLeft,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Share2,
+  Image as ImageIcon
 } from "lucide-react"
 
 export default function ResultPage() {
   const router = useRouter()
-  const { participant, answers } = useAssessmentStore()
+  const { participant, answers, blurCount } = useAssessmentStore()
   const reportRef = useRef<HTMLDivElement>(null)
+  const badgeRef = useRef<HTMLDivElement>(null)
 
   const [isGeneratingResult, setIsGeneratingResult] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
   const [isEmailing, setIsEmailing] = useState(false)
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
   const [reportData, setReportData] = useState<any>(null)
+  const [reportId, setReportId] = useState<string>('')
+  const [hasError, setHasError] = useState(false)
 
   useEffect(() => {
+    // Generate static ID once on mount so it doesn't change on re-renders (Fixes random ID issue)
+    setReportId(Math.floor(Math.random() * 90000 + 10000).toString())
+
     if (!participant) {
       router.replace("/")
       return
@@ -58,8 +69,24 @@ export default function ResultPage() {
       .catch(err => {
         console.error("Scoring failed", err)
         setIsGeneratingResult(false)
+        setHasError(true)
       })
   }, [participant, router, answers])
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-800 p-6">
+        <div className="flex flex-col items-center gap-4 text-rose-600 font-medium bg-white p-8 rounded-2xl shadow-sm border border-rose-100 max-w-md text-center">
+          <AlertCircle className="w-12 h-12 text-rose-500" />
+          <h2 className="text-xl font-bold text-slate-900">Gagal Memproses Asesmen</h2>
+          <p className="text-slate-500 text-sm">Maaf, terjadi kesalahan saat memproses hasil tes Anda. Silakan coba lagi atau hubungi administrator.</p>
+          <Button onClick={() => window.location.reload()} className="mt-4 bg-slate-900 hover:bg-slate-800 text-white border-0 shadow-md h-11 px-8 rounded-xl font-bold">
+            Coba Lagi
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   if (isGeneratingResult || !reportData || !participant) {
     return (
@@ -113,39 +140,33 @@ export default function ResultPage() {
     return dataUrl
   }
 
+  const createPdfBlob = async (quality: number = 2.0) => {
+    const chartEl = document.getElementById("chart-section")
+    let chartImageBase64 = ""
+    if (chartEl) {
+      chartImageBase64 = await captureElement(chartEl, quality)
+    }
+
+    const doc = <DetailedReportPDF participant={participant} profile={profile} chartImageBase64={chartImageBase64} reportId={reportId} />
+    const blob = await pdf(doc).toBlob()
+    return blob
+  }
+
   const handleDownloadPdf = async () => {
-    if (!reportRef.current || isExporting) return
+    if (isExporting) return
 
     try {
       setIsExporting(true)
-
-      const imgData = await captureElement(reportRef.current, 1.0)
-
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = pdf.internal.pageSize.getHeight()
-
-      const img = new Image()
-      img.src = imgData
-      await new Promise(resolve => { img.onload = resolve })
-
-      const imgWidth = pdfWidth
-      const imgHeight = (img.height * imgWidth) / img.width
-
-      let heightLeft = imgHeight
-      let position = 0
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST')
-      heightLeft -= pdfHeight
-
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight
-        pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST')
-        heightLeft -= pdfHeight
-      }
-
-      pdf.save(`LAPORAN_DISC_${participant.name.toUpperCase().replace(/ /g, '_')}.pdf`)
+      const blob = await createPdfBlob(2.0)
+      
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `LAPORAN_DISC_${participant.name.toUpperCase().replace(/ /g, '_')}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
     } catch (error) {
       console.error('PDF Export failed:', error)
     } finally {
@@ -154,39 +175,18 @@ export default function ResultPage() {
   }
 
   const handleSendEmail = async () => {
-    if (!reportRef.current || isEmailing) return
+    if (isEmailing) return
     
     try {
       setIsEmailing(true)
       setEmailStatus('sending')
 
-      const imgData = await captureElement(reportRef.current, 0.8)
-
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = pdf.internal.pageSize.getHeight()
-
-      const img = new Image()
-      img.src = imgData
-      await new Promise(resolve => { img.onload = resolve })
-
-      const imgWidth = pdfWidth
-      const imgHeight = (img.height * imgWidth) / img.width
-
-      let heightLeft = imgHeight
-      let position = 0
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST')
-      heightLeft -= pdfHeight
-
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight
-        pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST')
-        heightLeft -= pdfHeight
-      }
-
-      const pdfBase64 = pdf.output('datauristring')
+      const blob = await createPdfBlob(1.5)
+      
+      const reader = new FileReader()
+      reader.readAsDataURL(blob)
+      await new Promise(resolve => { reader.onloadend = resolve })
+      const pdfBase64 = reader.result as string
 
       const response = await fetch('/api/email', {
         method: 'POST',
@@ -212,6 +212,35 @@ export default function ResultPage() {
       setTimeout(() => setEmailStatus('idle'), 5000)
     } finally {
       setIsEmailing(false)
+    }
+  }
+
+  const handleShareBadge = async () => {
+    if (!badgeRef.current || isSharing) return
+    try {
+      setIsSharing(true)
+      const dataUrl = await captureElement(badgeRef.current, 2.0)
+      
+      const res = await fetch(dataUrl)
+      const blob = await res.blob()
+      const file = new File([blob], 'disc-badge.png', { type: 'image/png' })
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'Profil Perilaku DISC Saya',
+          text: `Saya adalah seorang ${profile.title}. Ini adalah profil perilaku dominan saya berdasarkan asesmen DISC.`,
+          files: [file]
+        })
+      } else {
+        const link = document.createElement('a')
+        link.href = dataUrl
+        link.download = `BADGE_${participant.name.toUpperCase().replace(/ /g, '_')}.png`
+        link.click()
+      }
+    } catch (error) {
+      console.error('Share failed', error)
+    } finally {
+      setIsSharing(false)
     }
   }
 
@@ -277,6 +306,21 @@ export default function ResultPage() {
             </Button>
 
             <Button
+              onClick={handleShareBadge}
+              disabled={isSharing}
+              variant="outline"
+              className="h-10 px-4 md:px-6 text-[10px] font-black uppercase tracking-widest border-teal-200 hover:bg-teal-50 text-teal-700 gap-2 shrink-0 rounded-xl disabled:opacity-50"
+            >
+              {isSharing ? (
+                <div className="w-4 h-4 border-2 border-teal-300 border-t-teal-600 rounded-full animate-spin" />
+              ) : (
+                <Share2 className="w-3.5 h-3.5" />
+              )}
+              <span className="hidden md:inline">{isSharing ? 'Memproses...' : 'Bagikan Badge'}</span>
+              <span className="md:hidden">{isSharing ? '...' : 'Share'}</span>
+            </Button>
+
+            <Button
               onClick={handleDownloadPdf}
               disabled={isExporting}
               variant="outline"
@@ -287,7 +331,8 @@ export default function ResultPage() {
               ) : (
                 <Download className="w-3.5 h-3.5" />
               )}
-              <span>{isExporting ? 'Proses...' : 'Simpan PDF'}</span>
+              <span className="hidden md:inline">{isExporting ? 'Proses...' : 'Simpan PDF'}</span>
+              <span className="md:hidden">{isExporting ? '...' : 'PDF'}</span>
             </Button>
           </div>
         </div>
@@ -321,6 +366,12 @@ export default function ResultPage() {
                   <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(20,184,166,0.5)]" />
                   Dokumen Resmi : Rahasia
                 </div>
+                {(blurCount || 0) >= 3 && (
+                  <div className="inline-flex items-center gap-2.5 bg-rose-600/10 text-rose-700 text-[10px] md:text-[11px] font-black px-4 py-2 uppercase tracking-widest rounded-lg border border-rose-200/50 mt-2 md:mt-0 md:ml-3">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    LOW VALIDITY - FOKUS TERGANGGU
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex justify-between md:flex-col items-center md:items-end gap-4 pt-6 md:pt-0 border-t md:border-t-0 border-slate-200/60">
@@ -329,7 +380,7 @@ export default function ResultPage() {
               </div>
               <div className="text-right">
                 <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Metadata Validasi</p>
-                <p className="text-xs md:text-sm font-mono font-black text-slate-900 bg-slate-100 px-2 py-1 rounded">ID-PX:{Math.floor(Math.random() * 90000 + 10000)}</p>
+                <p className="text-xs md:text-sm font-mono font-black text-slate-900 bg-slate-100 px-2 py-1 rounded">ID-PX:{reportId || '-----'}</p>
               </div>
             </div>
           </header>
@@ -384,7 +435,7 @@ export default function ResultPage() {
                 <div className="w-1.5 h-4 bg-teal-500" />
                 <h2 className="text-[10px] md:text-xs font-black text-slate-900 uppercase tracking-widest">Bagian B: Pemetaan Perilaku</h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+              <div id="chart-section" className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 bg-white p-4 rounded-xl">
                 {renderChart('most', '#0ea5e9', 'I: Persona Sosial', 'Ekspektasi')}
                 {renderChart('least', '#f43f5e', 'II: Kondisi Alami', 'Di Bawah Tekanan')}
                 {renderChart('change', '#14b8a6', 'III: Sintesis Inti', 'Perilaku Terintegrasi')}
@@ -474,10 +525,16 @@ export default function ResultPage() {
                     ))}
                   </div>
                 </div>
-                <div className="pt-4 border-t border-slate-200/50">
-                  <p className="text-[8px] text-slate-400 font-medium italic">
+                <div className="pt-4 border-t border-slate-200/50 space-y-2">
+                  <p className="text-[8px] text-slate-400 font-medium italic leading-relaxed">
                     *Berdasarkan metrik perilaku dominan yang terekam pada instrumen DISC IPIP-15.
                   </p>
+                  <div className="bg-rose-50/50 border border-rose-100 p-3 rounded-lg">
+                    <p className="text-[8px] text-rose-600/80 font-bold uppercase tracking-widest mb-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Penafian Profesional</p>
+                    <p className="text-[8px] text-slate-500 font-medium leading-relaxed text-justify">
+                      Laporan ini dihasilkan secara terkomputerisasi melalui platform swa-asesmen (self-assessment). Hasil ini memberikan indikator kecenderungan perilaku dan <strong>bukan</strong> merupakan alat diagnostik psikologi klinis berlisensi. Keputusan strategis terkait rekrutmen atau asesmen kompetensi sebaiknya diverifikasi lebih lanjut oleh psikolog atau asesor profesional.
+                    </p>
+                  </div>
                 </div>
               </div>
             </section>
@@ -511,6 +568,17 @@ export default function ResultPage() {
             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.5em]">LAPORAN PSIKOMETRI TERSERTIFIKASI</p>
           </div>
         </div>
+      </div>
+
+      {/* Hidden Social Badge for capture */}
+      <div className="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none">
+        <SocialBadge 
+          ref={badgeRef}
+          participantName={participant.name}
+          pattern={profile.pattern}
+          title={profile.title}
+          strengths={profile.strengths}
+        />
       </div>
     </div>
   )

@@ -11,8 +11,10 @@ interface ParticipantData {
 interface AssessmentState {
   participant: ParticipantData | null
   answers: Record<number, { most: string; least: string }>
+  blurCount: number
   setParticipant: (data: ParticipantData) => void
   setAnswer: (groupId: number, type: 'most' | 'least', statementId: string) => void
+  incrementBlurCount: () => void
   clearAssessment: () => void
 }
 
@@ -21,6 +23,7 @@ export const useAssessmentStore = create<AssessmentState>()(
     (set) => ({
       participant: null,
       answers: {},
+      blurCount: 0,
       setParticipant: (data) => set({ participant: data }),
       setAnswer: (groupId, type, statementId) =>
         set((state) => ({
@@ -32,7 +35,8 @@ export const useAssessmentStore = create<AssessmentState>()(
             },
           },
         })),
-      clearAssessment: () => set({ participant: null, answers: {} }),
+      incrementBlurCount: () => set((state) => ({ blurCount: state.blurCount + 1 })),
+      clearAssessment: () => set({ participant: null, answers: {}, blurCount: 0 }),
     }),
     {
       name: 'disc-assessment-storage',

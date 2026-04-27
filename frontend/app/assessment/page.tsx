@@ -4,17 +4,18 @@ import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAssessmentStore } from "@/store/assessment"
 import { Button } from "@/components/ui/button"
-import { Activity, ShieldCheck, ArrowRight, Loader, HelpCircle } from "lucide-react"
+import { Activity, ShieldCheck, ArrowRight, Loader, HelpCircle, AlertCircle } from "lucide-react"
 import { driver } from "driver.js"
 import "driver.js/dist/driver.css"
 
 export default function AssessmentPage() {
   const router = useRouter()
-  const { participant, answers, setAnswer } = useAssessmentStore()
+  const { participant, answers, setAnswer, blurCount, incrementBlurCount } = useAssessmentStore()
   
   const [questions, setQuestions] = useState<any[]>([])
   const [isLoadingApi, setIsLoadingApi] = useState(true)
   const [currentGroupIdx, setCurrentGroupIdx] = useState(0)
+  const [showWarning, setShowWarning] = useState(false)
 
   const startTutorial = useCallback(() => {
     const driverObj = driver({
@@ -218,6 +219,23 @@ export default function AssessmentPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 overflow-hidden font-sans flex flex-col">
+      {showWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 md:p-8 max-w-sm w-full text-center shadow-2xl border border-rose-100">
+            <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Peringatan Integritas!</h3>
+            <p className="text-slate-600 mb-6 text-sm">
+              Sistem mendeteksi Anda meninggalkan halaman asesmen. Fokus penuh sangat diperlukan. Pelanggaran ke-<strong>{blurCount}</strong> telah tercatat.
+            </p>
+            <Button onClick={() => setShowWarning(false)} className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-12 rounded-xl">
+              Saya Mengerti & Kembali Fokus
+            </Button>
+          </div>
+        </div>
+      )}
+
       <header id="assessment-header" className="px-8 py-4 border-b border-slate-200 bg-white flex justify-between items-center z-10 shadow-sm sticky top-0">
         <div className="flex items-center gap-4">
           <img src="/wk.png" alt="Logo" className="h-9 w-auto" />

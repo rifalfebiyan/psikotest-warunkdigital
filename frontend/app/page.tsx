@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 export default function LandingPage() {
   const router = useRouter()
   const setParticipant = useAssessmentStore((state) => state.setParticipant)
+  const clearAssessment = useAssessmentStore((state) => state.clearAssessment)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -23,6 +24,12 @@ export default function LandingPage() {
   const [countryCode, setCountryCode] = useState("+62")
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    // Bersihkan data assessment lama saat masuk ke halaman registrasi
+    // agar tidak terjadi pencampuran data antar peserta (State tidak di-clear issue)
+    clearAssessment()
+  }, [clearAssessment])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
