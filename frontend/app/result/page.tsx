@@ -147,7 +147,8 @@ export default function ResultPage() {
       chartImageBase64 = await captureElement(chartEl, quality)
     }
 
-    const doc = <DetailedReportPDF participant={participant} profile={profile} chartImageBase64={chartImageBase64} reportId={reportId} />
+    const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/wk.png` : undefined
+    const doc = <DetailedReportPDF participant={participant} profile={profile} chartImageBase64={chartImageBase64} reportId={reportId} logoUrl={logoUrl} />
     const blob = await pdf(doc).toBlob()
     return blob
   }

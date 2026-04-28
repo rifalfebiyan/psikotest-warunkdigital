@@ -155,6 +155,38 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: '#94a3b8',
   },
+  signatureContainer: {
+    marginTop: 30,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#cbd5e1',
+    paddingTop: 20,
+  },
+  signatureLabel: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  signatureLogo: {
+    height: 30,
+    marginBottom: 10,
+  },
+  signatureTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#0f172a',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  signatureSubtitle: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#0d9488',
+    textTransform: 'uppercase',
+  },
 });
 
 interface Props {
@@ -162,9 +194,10 @@ interface Props {
   profile: any;
   chartImageBase64: string;
   reportId: string;
+  logoUrl?: string;
 }
 
-export const DetailedReportPDF: React.FC<Props> = ({ participant, profile, chartImageBase64, reportId }) => {
+export const DetailedReportPDF: React.FC<Props> = ({ participant, profile, chartImageBase64, reportId, logoUrl }) => {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -255,7 +288,14 @@ export const DetailedReportPDF: React.FC<Props> = ({ participant, profile, chart
           ))}
         </View>
 
-        <Text style={{ fontSize: 8, color: '#94a3b8', fontStyle: 'italic', marginTop: 40, lineHeight: 1.4 }}>
+        <View style={styles.signatureContainer}>
+          <Text style={styles.signatureLabel}>VALIDATOR BERWENANG</Text>
+          {logoUrl && <Image src={logoUrl} style={styles.signatureLogo} />}
+          <Text style={styles.signatureTitle}>ID TERVALIDASI SISTEM</Text>
+          <Text style={styles.signatureSubtitle}>TANDA TANGAN DIGITAL OTOMATIS</Text>
+        </View>
+
+        <Text style={{ fontSize: 8, color: '#94a3b8', fontStyle: 'italic', marginTop: 30, lineHeight: 1.4 }}>
           *Penafian Profesional: Laporan ini dihasilkan secara terkomputerisasi melalui platform swa-asesmen (self-assessment). Hasil ini memberikan indikator kecenderungan perilaku dan bukan merupakan alat diagnostik psikologi klinis berlisensi.
         </Text>
 
